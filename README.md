@@ -19,3 +19,8 @@ Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_do
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at <https://hexdocs.pm/rafty>.
 
+
+## Running code
+{:ok, pid} = Rafty.NodeSupervisor.start_node(0)
+GenServer.call(pid, :get)
+GenServer.call(pid, {:bump, 9})

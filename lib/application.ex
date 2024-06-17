@@ -6,7 +6,7 @@ defmodule Rafty.Application do
 
   def start(_type, _args) do
     children = [
-      {Rafty.MyGenserver, []}
+      {Rafty.NodeSupervisor, []}
     ]
 
     opts = [strategy: :one_for_one, name: Rafty.Supervisor]
