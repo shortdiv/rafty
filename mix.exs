@@ -15,7 +15,7 @@ defmodule Rafty.MixProject do
   def application do
     [
       extra_applications: [:logger],
-      mod: {Raft.Application, []}
+      mod: {Rafty.Application, []}
     ]
   end
 
@@ -23,8 +23,6 @@ defmodule Rafty.MixProject do
   defp deps do
     [
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false}
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
     ]
   end
 end

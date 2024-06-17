@@ -11,3 +11,6 @@
 .envrc
 .env
 .DS_Store
+
+# Ignore the Erlang crash dump files
+erl_crash.dump

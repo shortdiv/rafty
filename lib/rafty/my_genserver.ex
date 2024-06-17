@@ -1,4 +1,4 @@
-defmodule Raft.MyGenserver do
+defmodule Rafty.MyGenserver do
   use GenServer
 
   def start_link(_args) do

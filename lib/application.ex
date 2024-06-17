@@ -1,4 +1,4 @@
-defmodule Raft.Application do
+defmodule Rafty.Application do
   @moduledoc """
   Application module for the Raft application.
   """
@@ -6,10 +6,10 @@ defmodule Raft.Application do
 
   def start(_type, _args) do
     children = [
-      {Raft.MyGenserver, []}
+      {Rafty.MyGenserver, []}
     ]
 
-    opts = [strategy: :one_for_one, name: Raft.Supervisor]
+    opts = [strategy: :one_for_one, name: Rafty.Supervisor]
     Supervisor.start_link(children, opts)
   end
 end
