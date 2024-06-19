@@ -7,13 +7,13 @@ defmodule Rafty.NodeSupervisor do
 
   def start_node(int) do
     spec = {Rafty.Counter, int}
-    DynamicSupervisor.start_child(__MODULE__, spec)
+    Supervisor.start_child(__MODULE__, spec)
   end
 
   @impl true
-  def init(start_numbers) do
-    children = for start <- start_numbers do
-      Supervisor.child_spec({Rafty.Counter, start}, id: start)
+  def init(num_nodes) do
+    children = for node <- 1..num_nodes do
+      Supervisor.child_spec({Rafty.Counter, node}, id: node)
     end
     Supervisor.init(children, strategy: :one_for_one)
   end

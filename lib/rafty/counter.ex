@@ -1,5 +1,6 @@
 defmodule Rafty.Counter do
   use GenServer
+  require Logger
 
   @interval 100
 
