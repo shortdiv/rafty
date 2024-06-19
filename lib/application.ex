@@ -9,6 +9,7 @@ defmodule Rafty.Application do
     num_nodes = parse_args(args)
 
     children = [
+      {Registry, keys: :unique, name: Rafty.Registry},
       {Rafty.NodeSupervisor, num_nodes}
     ]
 

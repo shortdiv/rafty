@@ -6,14 +6,14 @@ defmodule Rafty.NodeSupervisor do
   end
 
   def start_node(int) do
-    spec = {Rafty.Counter, int}
+    spec = {Rafty.Node, int}
     Supervisor.start_child(__MODULE__, spec)
   end
 
   @impl true
   def init(num_nodes) do
     children = for node <- 1..num_nodes do
-      Supervisor.child_spec({Rafty.Counter, node}, id: node)
+      Supervisor.child_spec({Rafty.Node, node}, id: node)
     end
     Supervisor.init(children, strategy: :one_for_one)
   end
