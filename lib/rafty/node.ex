@@ -3,9 +3,9 @@ defmodule Rafty.Node do
 
   @heartbeat_interval 5000
 
-  def start_link(arg) do
-    # id = Keyword.get(opts, :id)
-    GenServer.start_link(__MODULE__, arg, name: via_tuple(arg))
+  def start_link(opts \\ []) do
+    id = Keyword.get(opts, :id)
+    GenServer.start_link(__MODULE__, opts, name: via_tuple(id))
   end
 
   def get(pid) do
@@ -15,13 +15,12 @@ defmodule Rafty.Node do
   @impl true
   def init(initial_state) do
     st = %{
-      state: initial_state,
+      role: initial_state[:role],
       timer: :erlang.start_timer(randomize_timeout(@heartbeat_interval, 0.4), self(), :tick)
     }
     {:ok, st}
   end
 
-  # switch the node to candidate on heartbeat timeout
   def get_state(id) do
     GenServer.call(via_tuple(id), :get_state)
   end
@@ -33,7 +32,7 @@ defmodule Rafty.Node do
 
   @impl true
   def handle_info({:timeout, _timer_ref, :tick}, st) do
-    IO.puts("timeout occurred #{st.state}")
+    IO.inspect("timeout occurred #{st.role}")
     new_timer = :erlang.start_timer(randomize_timeout(@heartbeat_interval, 0.4), self(), :tick)
     :erlang.cancel_timer(st.timer)
     {:noreply, %{st | timer: new_timer}}
