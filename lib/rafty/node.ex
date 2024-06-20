@@ -16,7 +16,7 @@ defmodule Rafty.Node do
   def init(initial_state) do
     st = %{
       state: initial_state,
-      timer: :erlang.start_timer(@heartbeat_interval, self(), :tick)
+      timer: :erlang.start_timer(randomize_timeout(@heartbeat_interval, 0.4), self(), :tick)
     }
     {:ok, st}
   end
@@ -33,12 +33,20 @@ defmodule Rafty.Node do
 
   @impl true
   def handle_info({:timeout, _timer_ref, :tick}, st) do
-    new_timer = :erlang.start_timer(@heartbeat_interval, self(), :tick)
+    IO.puts("timeout occurred #{st.state}")
+    new_timer = :erlang.start_timer(randomize_timeout(@heartbeat_interval, 0.4), self(), :tick)
     :erlang.cancel_timer(st.timer)
     {:noreply, %{st | timer: new_timer}}
   end
 
   defp via_tuple(id) do
     {:via, Registry, {Rafty.Registry, id}}
+  end
+
+  def randomize_timeout(timeout, within_range) do
+    {rangemax, rangemin} = {1.0 + within_range, 1.0 - within_range}
+    max = round(timeout * rangemax)
+    min = round(timeout * rangemin)
+    min + :rand.uniform(max - min)
   end
 end
