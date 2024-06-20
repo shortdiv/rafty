@@ -46,8 +46,16 @@ defmodule Rafty.Node do
     {:noreply, %{st | election_timer: :erlang.start_timer(randomize_timeout(@election_timeout, 0.4), self(), :election_timeout)}}
   end
 
+
+  # do some rpceeeee
+  # def request_vote() do
+    # get all nodes and request a vote?
+    # :rpc.call(:'node1@your-hostname', MyModule, :say_hello, [])
+  # end
+
   defp via_tuple(id) do
-    {:via, Registry, {Rafty.Registry, id}}
+    # {:via, Registry, {Rafty.Registry, id}}
+    {:via, Rafty.Registry, {:node_registry, id}}
   end
 
   def randomize_timeout(timeout, within_range) do
