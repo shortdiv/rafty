@@ -21,6 +21,7 @@ be found at <https://hexdocs.pm/rafty>.
 
 
 ## Running code
-{:ok, pid} = Rafty.NodeSupervisor.start_node(0)
-GenServer.call(pid, :get)
-GenServer.call(pid, {:bump, 9})
+:observer.start()
+
+Supervisor.which_children(Rafty.NodeSupervisor)
+Rafty.Node.stop(3)
