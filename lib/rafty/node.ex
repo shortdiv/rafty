@@ -1,20 +1,20 @@
 defmodule Rafty.Node do
   use GenServer
 
+  require Logger
+
   @heartbeat_interval 5000
   @election_timeout 4000
+  @registry :node_registry
 
   def start_link(opts \\ []) do
     id = Keyword.get(opts, :id)
     GenServer.start_link(__MODULE__, opts, name: via_tuple(id))
   end
 
-  def get(pid) do
-    GenServer.call(pid, :get)
-  end
-
   @impl true
   def init(initial_state) do
+    Logger.info("Starting #{inspect(initial_state[:id])}")
     st = %{
       role: initial_state[:role],
       heartbeat_timer: :erlang.start_timer(randomize_timeout(@heartbeat_interval, 0.4), self(), :heartbeat_timeout),
@@ -24,14 +24,12 @@ defmodule Rafty.Node do
     {:ok, st}
   end
 
-  def get_state(id) do
-    GenServer.call(via_tuple(id), :get_state)
+  def stop(name) do
+    Logger.info("Stopping #{inspect(name)}")
+    GenServer.stop(via_tuple(name))
   end
 
-  @impl true
-  def handle_call(:get_state, _from, state) do
-    {:reply, state, state}
-  end
+  def crash(name), do: GenServer.cast(via_tuple(name), :raise)
 
   def handle_info({:timeout, _timer_ref, :election_timeout}, st) do
     IO.puts("starting an election! #{st.node_id}")
@@ -54,8 +52,7 @@ defmodule Rafty.Node do
   # end
 
   defp via_tuple(id) do
-    # {:via, Registry, {Rafty.Registry, id}}
-    {:via, Rafty.Registry, {:node_registry, id}}
+    {:via, Registry, {@registry, id}}
   end
 
   def randomize_timeout(timeout, within_range) do

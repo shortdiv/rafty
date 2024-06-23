@@ -4,12 +4,14 @@ defmodule Rafty.Application do
   """
   use Application
 
+  @registry :node_registry
+
   def start(_type, _args) do
     args = System.argv()
     num_nodes = parse_args(args)
 
     children = [
-      {Registry, keys: :unique, name: Rafty.Registry},
+      {Registry, [keys: :unique, name: @registry]},
       {Rafty.NodeSupervisor, num_nodes}
     ]
 

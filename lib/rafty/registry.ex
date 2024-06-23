@@ -1,3 +1,4 @@
+# probably not doing anything rn
 defmodule Rafty.Registry do
   use GenServer
 

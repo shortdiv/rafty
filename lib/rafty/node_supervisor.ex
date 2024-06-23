@@ -6,9 +6,15 @@ defmodule Rafty.NodeSupervisor do
     Supervisor.start_link(__MODULE__, args, name: __MODULE__)
   end
 
-  def start_node(int) do
-    spec = {Rafty.Node, int}
-    Supervisor.start_child(__MODULE__, spec)
+  # def start_node(int) do
+  #   spec = {Rafty.Node, int}
+  #   Supervisor.start_child(__MODULE__, spec)
+  # end
+
+  def start_child(child_name) do
+    Supervisor.start_child(
+      __MODULE__,
+      %{id: Node, start: {Node, :start_link,  [child_name]}, restart: :transient})
   end
 
   @impl true
