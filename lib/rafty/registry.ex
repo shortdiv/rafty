@@ -6,19 +6,29 @@ defmodule Rafty.Registry do
     GenServer.start_link(__MODULE__, nil, name: :registry)
   end
 
-  def find_node(node_id) do
-    GenServer.call(:registry, {:find_node, node_id})
+  def whereis_name(node_id) do
+    GenServer.call(:registry, {:whereis_name, node_id})
+  end
+
+  def register_name(node_id, pid) do
+    GenServer.call(:registry, {:register_name, node_id, pid})
+  end
+
+  def unregister_name(node_id, pid) do
+    GenServer.call(:registry, {:unregister_name, node_id, pid})
   end
 
   def send(node, message) do
-    case find_node(node) do
+    case whereis_name(node) do
       nil -> {:error, "node is likely dead"}
       # pid -> GenServer.cast(pid, {:message, message})
-      pid -> Kernel.send(pid, message)
+      pid ->
+        Kernel.send(pid, message)
+        pid
     end
   end
 
-  def init do
-    {:ok, %{}}
+  def init(init_arg) do
+    {:ok, init_arg}
   end
 end

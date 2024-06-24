@@ -33,6 +33,8 @@ defmodule Rafty.Node do
 
   def handle_info({:timeout, _timer_ref, :election_timeout}, st) do
     IO.puts("starting an election! #{st.node_id}")
+    others = Rafty.RegistryUtils.get_other_nodes(st.node_id)
+    # call out to all other nodes
     {:noreply, st}
   end
 
@@ -44,12 +46,11 @@ defmodule Rafty.Node do
     {:noreply, %{st | election_timer: :erlang.start_timer(randomize_timeout(@election_timeout, 0.4), self(), :election_timeout)}}
   end
 
-
-  # do some rpceeeee
-  # def request_vote() do
-    # get all nodes and request a vote?
-    # :rpc.call(:'node1@your-hostname', MyModule, :say_hello, [])
-  # end
+  @impl true
+  def handle_cast({:message, message}, state) do
+    IO.puts("Received message: #{message}")
+    {:noreply, state}
+  end
 
   defp via_tuple(id) do
     {:via, Registry, {@registry, id}}
