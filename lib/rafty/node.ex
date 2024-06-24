@@ -19,7 +19,7 @@ defmodule Rafty.Node do
       role: initial_state[:role],
       heartbeat_timer: :erlang.start_timer(randomize_timeout(@heartbeat_interval, 0.4), self(), :heartbeat_timeout),
       election_timer: nil,
-      node_id: initial_state[:id],
+      node_id: "node_#{initial_state[:id]}",
     }
     {:ok, st}
   end
@@ -33,8 +33,14 @@ defmodule Rafty.Node do
 
   def handle_info({:timeout, _timer_ref, :election_timeout}, st) do
     IO.puts("starting an election! #{st.node_id}")
-    others = Rafty.RegistryUtils.get_other_nodes(st.node_id)
+    _pids =  Rafty.RegistryUtils.get_other_nodes(st.node_id)
+    |> Enum.each(fn node ->
+      process = Rafty.RegistryUtils.find_node_process(node)
+      IO.inspect(process)
+    end)
+
     # call out to all other nodes
+
     {:noreply, st}
   end
 
@@ -53,7 +59,8 @@ defmodule Rafty.Node do
   end
 
   defp via_tuple(id) do
-    {:via, Registry, {@registry, id}}
+    node_name = "node_#{id}"
+    {:via, Registry, {@registry, node_name}}
   end
 
   def randomize_timeout(timeout, within_range) do
