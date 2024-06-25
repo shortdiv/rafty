@@ -33,14 +33,11 @@ defmodule Rafty.Node do
 
   def handle_info({:timeout, _timer_ref, :election_timeout}, st) do
     IO.puts("starting an election! #{st.node_id}")
-    _pids =  Rafty.RegistryUtils.get_other_nodes(st.node_id)
+    Rafty.RegistryUtils.get_other_nodes(st.node_id)
     |> Enum.each(fn node ->
       process = Rafty.RegistryUtils.find_node_process(node)
-      IO.inspect(process)
-    end)
-
-    # call out to all other nodes
-
+      send(process, {:message, "Hello from #{st.node_id}"})
+      end)
     {:noreply, st}
   end
 
@@ -52,9 +49,8 @@ defmodule Rafty.Node do
     {:noreply, %{st | election_timer: :erlang.start_timer(randomize_timeout(@election_timeout, 0.4), self(), :election_timeout)}}
   end
 
-  @impl true
-  def handle_cast({:message, message}, state) do
-    IO.puts("Received message: #{message}")
+  def handle_info({:message, message}, state) do
+    IO.inspect("#{message} received by #{state.node_id}")
     {:noreply, state}
   end
 
