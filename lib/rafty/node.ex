@@ -43,15 +43,22 @@ defmodule Rafty.Node do
   def crash(name), do: GenServer.cast(via_tuple(name), :raise)
 
   def handle_info({:timeout, _timer_ref, :election_timeout}, state) do
-    IO.puts("starting an election! #{state.node_id}")
-    Rafty.RegistryUtils.get_other_nodes(state.node_id)
-    |> Enum.each(fn node ->
-      process = Rafty.RegistryUtils.find_node_process(node)
-      # increase the term
-      state = Map.put(state, :current_term, state.current_term + 1)
-      request_vote(process, state.current_term, state.node_id)
-      end)
-    {:noreply, %{state | role: @candidate_role }}
+    IO.inspect("#{state.node_id} has voted for #{state.voted_for}")
+    if state.voted_for == nil do
+      IO.inspect("becoming a candidate")
+      Rafty.RegistryUtils.get_other_nodes(state.node_id)
+      |> Enum.each(fn node ->
+        process = Rafty.RegistryUtils.find_node_process(node)
+        # increase the term
+        state = Map.put(state, :current_term, state.current_term + 1)
+        reply = request_vote(process, state.current_term, state.node_id)
+        IO.inspect(reply)
+        end)
+      {:noreply, %{state | role: @candidate_role }}
+    else
+      IO.inspect("already voted")
+      {:noreply, state}
+    end
   end
 
   @impl true
