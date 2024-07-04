@@ -40,78 +40,83 @@ defmodule Rafty.Node do
     {:ok, st}
   end
 
-  def stop(name) do
-    Logger.info("Stopping #{inspect(name)}")
-    GenServer.stop(via_tuple(name))
-  end
-
-  def crash(name), do: GenServer.cast(via_tuple(name), :raise)
-
   def handle_info({:timeout, _timer_ref, :election_timeout}, state) do
     if state.voted_for == nil do
-      IO.inspect("becoming a candidate")
+      Logger.info("Starting an election")
+      state = Map.put(state, :current_term, state.current_term + 1)
       Rafty.RegistryUtils.get_other_nodes(state.node_id)
       |> Enum.each(fn node ->
         process = Rafty.RegistryUtils.find_node_process(node)
-        # increase the term
-        state = Map.put(state, :current_term, state.current_term + 1)
         request_vote(process, state.current_term, state.node_id)
         end)
-      {:noreply, %{state | role: @candidate_role }}
+      {:noreply, %{state | role: @candidate_role}}
     else
-      IO.inspect("already voted")
+      Logger.info("Node is ineligible for candidacy")
       {:noreply, state}
     end
   end
 
   @impl true
   def handle_info({:timeout, _timer_ref, :heartbeat_timeout}, st) do
-    IO.puts("heartbeat exceeded")
+    Logger.info("Heartbeat timeout for #{st.node_id} exceeded")
     :erlang.cancel_timer(st.heartbeat_timer)
     {:noreply, %{st | election_timer: :erlang.start_timer(randomize_timeout(@election_timeout, 0.4), self(), :election_timeout)}}
   end
 
   @impl true
   def handle_call({:request_vote, pid, candidate_term, candidate_id}, _from, state) do
-    IO.inspect(pid)
-    IO.inspect(candidate_id)
+    IO.puts("vote for me! #{candidate_term} #{candidate_id}")
+
     {reply, new_state} =
       if candidate_term > state.current_term and state.voted_for == nil do
-        IO.inspect("#{state.node_id} currently voting for #{candidate_id}")
+        vote_received(pid, %{})
         {:ok, %{state | voted_for: candidate_id, current_term: candidate_term}}
       else
         {:error, state}
       end
 
-    if reply == :ok do
-      IO.inspect("counting vote")
-      vote_received(pid, %{})
-    end
-
     {:reply, reply, new_state}
-  end
-
-  def handle_call({:vote_received, _data}, _from, state) do
-    IO.inspect("received vote")
-    {:reply, :ok, state}
   end
 
   def handle_call(:get_state, _from, state) do
     {:reply, state, state}
   end
 
+  def handle_info(:send_heartbeat, state) do
+    if state.role == :leader do
+      Rafty.RegistryUtils.get_other_nodes(state.node_id)
+      |> Enum.each(fn node ->
+        process = Rafty.RegistryUtils.find_node_process(node)
+        GenServer.cast(process, {:heartbeat, state.current_term})
+        end)
+      {:noreply, state}
+    else
+      {:noreply, state}
+    end
+  end
+
+  def handle_cast({:heartbeat, term}, state) do
+    IO.inspect("Received heartbeat from leader with term #{term} #{state.node_id} at #{DateTime.utc_now()}")
+    # timeout an election if a heartbeat is received from a leader with a higher term
+    # log timing that last heartbeat was received
+    new_state = %{state | heartbeat_timer: :erlang.start_timer(randomize_timeout(@heartbeat_interval, 0.4), self(), :heartbeat_timeout), current_term: term, votes_received: 0, voted_for: nil}
+    {:noreply, new_state}
+  end
+
   @impl true
   def handle_cast({:vote_received, _data}, state) do
     votes_received = state.votes_received + 1
-    new_state = %{state | votes_received: votes_received}
+    state = %{state | votes_received: votes_received}
     role = if votes_received > div(length(Rafty.RegistryUtils.get_other_nodes(state.node_id)), 2) do
-      IO.inspect("a leader has been chosen #{state.node_id}")
+      Logger.info("a leader has been chosen in #{state.node_id}")
       :leader
     else
       :follower
     end
 
-    {:noreply, %{new_state | role: role, election_timer: nil}}
+    Process.send_after(self(), :send_heartbeat, 2000)
+
+    {:noreply, %{state | role: role, election_timer: nil, heartbeat_timer: :erlang.start_timer(randomize_timeout(@heartbeat_interval, 0.4), self(), :heartbeat_timeout)}}
   end
 
   defp via_tuple(id) do
