@@ -40,9 +40,11 @@ defmodule Rafty.Node do
     {:ok, st}
   end
 
+  def schedule, do: Process.send_after(self(), :send_heartbeat, 2000)
+
   def handle_info({:timeout, _timer_ref, :election_timeout}, state) do
     if state.voted_for == nil do
-      Logger.info("Starting an election")
+      Logger.info("Election timed out, starting an election")
       state = Map.put(state, :current_term, state.current_term + 1)
       Rafty.RegistryUtils.get_other_nodes(state.node_id)
       |> Enum.each(fn node ->
@@ -65,11 +67,11 @@ defmodule Rafty.Node do
 
   @impl true
   def handle_call({:request_vote, pid, candidate_term, candidate_id}, _from, state) do
-    IO.puts("vote for me! #{candidate_term} #{candidate_id}")
-
     {reply, new_state} =
       if candidate_term > state.current_term and state.voted_for == nil do
         vote_received(pid, %{})
+        # cancel election timer
+        if state.election_timer != nil, do: :erlang.cancel_timer(state.election_timer)
         {:ok, %{state | voted_for: candidate_id, current_term: candidate_term}}
       else
         {:error, state}
@@ -84,6 +86,9 @@ defmodule Rafty.Node do
 
   def handle_info(:send_heartbeat, state) do
     if state.role == :leader do
+
+      schedule()
+
       Rafty.RegistryUtils.get_other_nodes(state.node_id)
       |> Enum.each(fn node ->
         process = Rafty.RegistryUtils.find_node_process(node)
@@ -96,9 +101,10 @@ defmodule Rafty.Node do
   end
 
   def handle_cast({:heartbeat, term}, state) do
-    IO.inspect("Received heartbeat from leader with term #{term} #{state.node_id} at #{DateTime.utc_now()}")
-    # timeout an election if a heartbeat is received from a leader with a higher term
-    # log timing that last heartbeat was received
+    Logger.info("Received heartbeat from leader with term #{term} #{state.node_id}}")
+
+    :erlang.cancel_timer(state.heartbeat_timer)
+
     new_state = %{state | heartbeat_timer: :erlang.start_timer(randomize_timeout(@heartbeat_interval, 0.4), self(), :heartbeat_timeout), current_term: term, votes_received: 0, voted_for: nil}
     {:noreply, new_state}
   end
@@ -107,16 +113,16 @@ defmodule Rafty.Node do
   def handle_cast({:vote_received, _data}, state) do
     votes_received = state.votes_received + 1
     state = %{state | votes_received: votes_received}
-    role = if votes_received > div(length(Rafty.RegistryUtils.get_other_nodes(state.node_id)), 2) do
+    if votes_received > div(length(Rafty.RegistryUtils.get_other_nodes(state.node_id)), 2) do
       Logger.info("a leader has been chosen in #{state.node_id}")
-      :leader
+      :erlang.cancel_timer(state.heartbeat_timer)
+
+      schedule()
+
+      {:noreply, %{state | role: :leader, election_timer: nil, heartbeat_timer: nil}}
     else
-      :follower
+      {:noreply, %{state | role: :follower, election_timer: nil, heartbeat_timer: :erlang.start_timer(randomize_timeout(@heartbeat_interval, 0.4), self(), :heartbeat_timeout)}}
     end
-
-    Process.send_after(self(), :send_heartbeat, 2000)
-
-    {:noreply, %{state | role: role, election_timer: nil, heartbeat_timer: :erlang.start_timer(randomize_timeout(@heartbeat_interval, 0.4), self(), :heartbeat_timeout)}}
   end
 
   defp via_tuple(id) do
