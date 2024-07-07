@@ -13,6 +13,13 @@ defmodule Rafty.Node do
     GenServer.start_link(__MODULE__, opts, name: via_tuple(id))
   end
 
+  def stop(name) do
+    Logger.info("Stopping #{inspect(name)}")
+    GenServer.stop(via_tuple(name))
+  end
+
+  def crash(name), do: GenServer.cast(via_tuple(name), :raise)
+
   def request_vote(pid, candidate_term, candidate_id) do
     GenServer.call(pid, {:request_vote, self(), candidate_term, candidate_id})
   end
