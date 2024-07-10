@@ -37,6 +37,7 @@ defmodule Rafty.Node do
     Logger.info("Starting #{inspect(initial_state[:id])}")
     st = %{
       role: initial_state[:role],
+      logs: [%{index: 0, term: 1, command: :noop}],
       heartbeat_timer: :erlang.start_timer(randomize_timeout(@heartbeat_interval, 0.4), self(), :heartbeat_timeout),
       election_timer: nil,
       current_term: 0,
@@ -91,29 +92,29 @@ defmodule Rafty.Node do
     {:reply, state, state}
   end
 
-  def handle_info(:send_heartbeat, state) do
-    if state.role == :leader do
-
-      schedule()
-
-      Rafty.RegistryUtils.get_other_nodes(state.node_id)
-      |> Enum.each(fn node ->
-        process = Rafty.RegistryUtils.find_node_process(node)
-        GenServer.cast(process, {:heartbeat, state.current_term})
-        end)
-      {:noreply, state}
-    else
-      {:noreply, state}
-    end
-  end
-
-  def handle_cast({:heartbeat, term}, state) do
-    Logger.info("Received heartbeat from leader with term #{term} #{state.node_id}}")
+  def handle_cast({:heartbeat, logs}, state) do
+    Logger.info("Received heartbeat from leader with term #{logs.term} #{state.node_id}}")
 
     :erlang.cancel_timer(state.heartbeat_timer)
 
-    new_state = %{state | heartbeat_timer: :erlang.start_timer(randomize_timeout(@heartbeat_interval, 0.4), self(), :heartbeat_timeout), current_term: term, votes_received: 0, voted_for: nil}
-    {:noreply, new_state}
+    node_latest = Enum.at(state.logs, -1)
+    leader_latest = logs
+
+    difference = leader_latest.index - node_latest.index
+    state =
+      case difference do
+        diff when diff > 1 ->
+          # way behind get older logs
+          IO.puts("way behind my friend")
+          state
+        1 ->
+          %{state | logs: state.logs ++ [leader_latest]}
+        _ ->
+          IO.puts("no changes detected")
+          state
+      end
+
+    {:noreply, %{state | heartbeat_timer: :erlang.start_timer(randomize_timeout(@heartbeat_interval, 0.4), self(), :heartbeat_timeout), current_term: leader_latest.term, votes_received: 0, voted_for: nil}}
   end
 
   @impl true
